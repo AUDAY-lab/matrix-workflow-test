@@ -31,7 +31,7 @@ jobs:
         id: check
         run: |
           if [ "${{ matrix.branch }}" != "${{ env.BRANCH }}" ]; then
-            echo "This matrix (${ {matrix.branch} }) doesn't match current branch (${{ env.BRANCH }})."
+            echo "This matrix (${{ matrix.branch }}) doesn't match current branch (${{ env.BRANCH }})."
             echo "skip=true" >> $GITHUB_OUTPUT
           else
             echo "skip=false" >> $GITHUB_OUTPUT
