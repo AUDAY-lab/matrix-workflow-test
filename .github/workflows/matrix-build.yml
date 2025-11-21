@@ -3,8 +3,6 @@ name: Test Matrix Branch Logic (Multi-Job)
 on:
   push:
     branches:
-      - main
-      - stage
       - test
 
 env:
@@ -12,26 +10,39 @@ env:
 
 jobs:
   test-branch:
-    name: Run matrix job for ${{ github.ref_name }}
+    name: Run ECS-like Matrix
     runs-on: ubuntu-latest
 
     strategy:
       fail-fast: false
       matrix:
         include:
-          - branch: main
-            env_name: Production
-          - branch: stage
-            env_name: Staging
-          - branch: test
-            env_name: Testing
+          - job: webhook-test
+            branch: test
+            env_name: Webhook Job Test
+            service: timetap-core-webhook-job
+
+          - job: email-test
+            branch: test
+            env_name: Email Transmit Job Test
+            service: timetap-core-email-transmit-job
+
+          - job: email-prod
+            branch: main
+            env_name: Email Transmit Job Main
+            service: timetap-core-email-transmit-job
+
+          - job: email-stage
+            branch: main
+            env_name: Email Transmit Job Stage
+            service: timetap-core-email-transmit-job
 
     steps:
       - name: Check branch match
         id: check
         run: |
-          echo "Matrix branch: ${{ matrix.branch }}"
-          echo "GitHub ref  : ${{ env.BRANCH }}"
+          echo "Matrix.branch = ${{ matrix.branch }}"
+          echo "Current BRANCH = ${{ env.BRANCH }}"
 
           if [ "${{ matrix.branch }}" != "${{ env.BRANCH }}" ]; then
             echo "skip=true" >> $GITHUB_OUTPUT
@@ -39,35 +50,29 @@ jobs:
             echo "skip=false" >> $GITHUB_OUTPUT
           fi
 
-      - name: Skip non-matching matrix entry
+      - name: Skip non-matching entries
         if: steps.check.outputs.skip == 'true'
         run: |
-          echo "Skipping matrix entry: ${{ matrix.branch }} (branch mismatch)"
+          echo "SKIPPED: ${{ matrix.job }} (branch mismatch)"
           exit 0
 
-      - name: Print matrix + branch context
+      - name: Run simulated ECS deploy
         if: steps.check.outputs.skip == 'false'
         run: |
           echo "---------------------------------------------"
-          echo "Matrix branch        : ${{ matrix.branch }}"
-          echo "GitHub ref_name      : ${{ github.ref_name }}"
-          echo "Environment name     : ${{ matrix.env_name }}"
+          echo "Running MATRIX JOB : ${{ matrix.job }}"
+          echo "Environment Name   : ${{ matrix.env_name }}"
+          echo "Service Name       : ${{ matrix.service }}"
+          echo "Branch Matched     : ${{ env.BRANCH }}"
           echo "---------------------------------------------"
-
-      - name: Simulate build process
-        if: steps.check.outputs.skip == 'false'
-        run: |
-          echo "Building and testing for environment: ${{ matrix.env_name }}"
-          sleep 3
-          echo "Build successful for ${{ matrix.env_name }}"
+          sleep 2
+          echo "SIMULATED SUCCESSFUL DEPLOY OF ${{ matrix.job }}"
 
   second-job:
-    name: Follow-up job (${{ github.ref_name }})
+    name: Follow-up
     needs: test-branch
     runs-on: ubuntu-latest
 
     steps:
-      - name: Print follow-up confirmation
-        run: |
-          echo "Follow-up job executed."
-          echo "Matrix filter worked for branch '${{ github.ref_name }}'."
+      - name: Confirmation
+        run: echo "Follow-up job executed successfully for ${{ github.ref_name }}"
