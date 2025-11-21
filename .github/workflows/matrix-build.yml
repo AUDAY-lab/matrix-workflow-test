@@ -26,25 +26,10 @@ jobs:
           - branch: test
             env_name: Testing
 
+    if: matrix.branch == github.ref_name
+
     steps:
-      - name: Check branch match
-        id: check
-        run: |
-          if [ "${{ matrix.branch }}" != "${{ env.BRANCH }}" ]; then
-            echo "This matrix (${{ matrix.branch }}) doesn't match current branch (${{ env.BRANCH }})."
-            echo "skip=true" >> $GITHUB_OUTPUT
-          else
-            echo "skip=false" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Skip non-matching environments
-        if: steps.check.outputs.skip == 'true'
-        run: |
-          echo "Skipping ${{ matrix.branch }} because current branch is ${{ env.BRANCH }}"
-          exit 0
-
-      - name: Print context info
-        if: steps.check.outputs.skip == 'false'
+      - name: Print matrix + branch context
         run: |
           echo "---------------------------------------------"
           echo "Matrix branch        : ${{ matrix.branch }}"
@@ -53,10 +38,9 @@ jobs:
           echo "---------------------------------------------"
 
       - name: Simulate build process
-        if: steps.check.outputs.skip == 'false'
         run: |
-          echo "Building for ${{ matrix.env_name }}..."
-          sleep 3
+          echo "Building and testing for environment: ${{ matrix.env_name }}"
+          sleep 5
           echo "Build successful for ${{ matrix.env_name }}"
 
   second-job:
