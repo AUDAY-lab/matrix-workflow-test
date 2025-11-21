@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - test
+      - stage
+      - main
 
 env:
   BRANCH: ${{ github.ref_name }}
