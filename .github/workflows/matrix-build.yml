@@ -26,10 +26,27 @@ jobs:
           - branch: test
             env_name: Testing
 
-    if: matrix.branch == github.ref_name
-
     steps:
+      - name: Check branch match
+        id: check
+        run: |
+          echo "Matrix branch: ${{ matrix.branch }}"
+          echo "GitHub ref  : ${{ env.BRANCH }}"
+
+          if [ "${{ matrix.branch }}" != "${{ env.BRANCH }}" ]; then
+            echo "skip=true" >> $GITHUB_OUTPUT
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Skip non-matching matrix entry
+        if: steps.check.outputs.skip == 'true'
+        run: |
+          echo "Skipping matrix entry: ${{ matrix.branch }} (branch mismatch)"
+          exit 0
+
       - name: Print matrix + branch context
+        if: steps.check.outputs.skip == 'false'
         run: |
           echo "---------------------------------------------"
           echo "Matrix branch        : ${{ matrix.branch }}"
@@ -38,9 +55,10 @@ jobs:
           echo "---------------------------------------------"
 
       - name: Simulate build process
+        if: steps.check.outputs.skip == 'false'
         run: |
           echo "Building and testing for environment: ${{ matrix.env_name }}"
-          sleep 5
+          sleep 3
           echo "Build successful for ${{ matrix.env_name }}"
 
   second-job:
@@ -51,11 +69,5 @@ jobs:
     steps:
       - name: Print follow-up confirmation
         run: |
-          echo "This is the follow-up job."
-          echo "Triggered because previous job for branch '${{ github.ref_name }}' succeeded."
-
-      - name: Do some simulated action
-        run: |
-          echo "Performing post-deploy action for ${{ github.ref_name }}..."
-          sleep 3
-          echo "Done."
+          echo "Follow-up job executed."
+          echo "Matrix filter worked for branch '${{ github.ref_name }}'."
