@@ -35,7 +35,7 @@ jobs:
             service: timetap-core-email-transmit-job
 
           - job: email-stage
-            branch: main
+            branch: stage
             env_name: Email Transmit Job Stage
             service: timetap-core-email-transmit-job
 
