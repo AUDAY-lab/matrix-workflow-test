@@ -33,7 +33,7 @@ jobs:
 
 
   build-and-push-images:
-    name: Test: Matrix Build Simulation
+    name: Test Matrix Build Simulation
     needs: maven-build
     runs-on: ubuntu-latest
 
@@ -124,4 +124,5 @@ jobs:
           echo "Branch: ${{ matrix.branch }}"
           echo "Using Image: $IMAGE_URI"
           echo "Matrix logic works!"
+
 
