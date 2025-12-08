@@ -1,0 +1,126 @@
+name: Test Workflow Logic
+
+on:
+  push:
+    branches:
+      - dev-test
+
+env:
+  BRANCH: ${{ github.ref_name }}
+  IMAGE_TAG: ${{ github.run_number }}_${{ github.ref_name }}
+
+jobs:
+  maven-build:
+    name: Test: Maven Build Simulation
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v6
+
+      - name: Simulate Maven build
+        run: |
+          mkdir -p dist
+          echo "dummy jar content" > dist/webhook-job.jar
+          echo "dummy jar content" > dist/email-transmit-job.jar
+          echo "Created dummy JAR files."
+
+      - name: Upload dummy JAR artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: timetap-dist
+          path: dist/*.jar
+
+
+  build-and-push-images:
+    name: Test: Matrix Build Simulation
+    needs: maven-build
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - job: webhook-job
+            repo: timetap-core-webhook-job-repo
+            jar_name: webhook-job.jar
+            folder: webhook-job
+
+          - job: email-transmit-job
+            repo: timetap-core-email-transmit-job-repo
+            jar_name: email-transmit-job.jar
+            folder: email-transmit-job
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v6
+
+      - name: Download JAR artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: timetap-dist
+          path: dist/
+
+      - name: Simulate prepare folder
+        run: |
+          echo "Preparing folder: ${{ matrix.folder }}"
+          mkdir -p ./${{ matrix.folder }}/target
+          cp dist/${{ matrix.jar_name }} ./${{ matrix.folder }}/target/
+          echo "Copied: dist/${{ matrix.jar_name }}"
+
+      - name: Simulate Docker build
+        run: |
+          echo "Simulating docker build for: ${{ matrix.repo }}"
+          echo "Tag would be: $IMAGE_TAG"
+          echo "BRANCH tag would be: $BRANCH"
+
+      - name: Print simulated image URI
+        run: |
+          echo "IMAGE_URI would be: FAKE_REG/${{ matrix.repo }}:$IMAGE_TAG"
+
+
+  deploy-to-ecs:
+    name: Test Deploy Logic (Matrix)
+    needs: build-and-push-images
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - job: webhook-job
+            branch: dev-test
+            repo: timetap-core-webhook-job-repo
+
+          - job: email-transmit-job
+            branch: dev-test
+            repo: timetap-core-email-transmit-job-repo
+
+    steps:
+      - name: Check branch match
+        id: check
+        run: |
+          if [ "${{ matrix.branch }}" != "${{ env.BRANCH }}" ]; then
+            echo "skip=true" >> $GITHUB_OUTPUT
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Skip non-matching
+        if: steps.check.outputs.skip == 'true'
+        run: echo "Skipping because branch mismatch"
+
+      - name: Simulate final image URI selection
+        if: steps.check.outputs.skip == 'false'
+        run: |
+          IMAGE_URI="FAKE_REG/${{ matrix.repo }}:$IMAGE_TAG"
+          echo "FINAL IMAGE URI => $IMAGE_URI"
+          echo "IMAGE_URI=$IMAGE_URI" >> $GITHUB_ENV
+
+      - name: Confirm Matrix Deploy Logic
+        if: steps.check.outputs.skip == 'false'
+        run: |
+          echo "Deploy Matrix Job: ${{ matrix.job }}"
+          echo "Branch: ${{ matrix.branch }}"
+          echo "Using Image: $IMAGE_URI"
+          echo "Matrix logic works!"
